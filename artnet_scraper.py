@@ -1,0 +1,143 @@
+import sys, getopt
+import requests
+from bs4 import BeautifulSoup
+from urllib.request import urlopen, Request
+from urllib.parse import quote
+from PIL import Image
+import re
+import time
+from datetime import datetime
+import hashlib
+
+def storeImg(url, path):
+    req = Request(url, headers={'User-Agent': 'Mozilla/6.0'})
+    err_cnt = 0
+    while(err_cnt < 20):
+        try:
+            img = Image.open(urlopen(req))
+            break
+        except:
+            err_cnt+=1 
+            time.sleep(1)
+
+    if err_cnt < 20:
+        imgName = 'img_'+datetime.now().strftime("%d%m%Y_%H%M%S%f")+'.jpg'
+        try:
+            img.save('{}'.format(path+imgName))
+        except:
+            print('Error while saving {} image.'.format(imgName))
+    else:
+        print('Couldn\'t retrieve image on {}'.format(url))
+
+def FindStoreImgUrl(img_pages, output):
+
+    for url in img_pages:
+        err_cnt = 0
+        while err_cnt < 20:
+            try:
+                result = requests.get(url)
+                soup = BeautifulSoup(result.content, 'html.parser')
+                imgArea = soup.find("div", {"id": "imgArea"})
+                imgUrl = imgArea.find("img")['src']
+                break
+
+            except:
+                err_cnt+=1
+                time.sleep(1)
+
+        if err_cnt < 20:
+            baseUrl = '/'.join(imgUrl.split('/')[:6])
+            imgUrl = '/'.join(imgUrl.split('/')[6:])
+
+            storeImg(baseUrl + '/' + quote(imgUrl), output)
+        else:
+            print('Couldn\'t get image from {}'.format(url))
+            
+def FindStoreImg(artist, output):
+    curr_page = 1
+    last_page = False
+
+    fail_cnt = 0
+    cnt = 0
+
+    while (not last_page) & (fail_cnt < 20):
+        url = 'https://www.artnet.fr/artistes/'+artist+'/'+str(curr_page)
+        images_link = []
+
+        # Access the url
+        try:
+            result = requests.get(url)
+            fail_cnt = fail_cnt-1 if fail_cnt>0 else 0
+        except:
+            print('Error while accessing the page.')
+            fail_cnt+=1
+            continue
+
+        if result.status_code == 200:
+            soup = BeautifulSoup(result.content, 'html.parser')
+
+            previous_link = ''
+            # Loop over the links that match an art piece page
+            for link in soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}.+[a-zA-Z0-9-]+/.+[a-z]+.+[0-9]+".format(artist.split('-')[0]))}):
+                link = link.get('href')
+                # Links appear twice in the source ode
+                if link != previous_link:
+                    images_link.append('https://www.artnet.fr'+link)
+                    previous_link = link
+            
+            cnt+=len(images_link)
+            FindStoreImgUrl(images_link, output)
+
+            print('{} images scrapped so far...'.format(cnt), end = '\r')
+
+            # Find the next page to scrap
+            index = 0 if curr_page < 3 else 1
+            next_link = curr_page
+            while int(next_link) <= curr_page:
+                try:
+                    next_link = soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}/[0-9]+$".format(artist))})[index].get('href')
+                    next_link = next_link.split('/')[-1]
+                    index+=1
+                # If no more next page
+                except:
+                    last_page = True
+                    next_link = curr_page+1
+
+            curr_page = int(next_link)
+
+    # If the site is down
+    if fail_cnt >= 20:
+        print('Error while accessing the web page. Stopped at {}th iteration.'.format(curr_page))
+    
+    print('{} images saved in {}.'.format(cnt, output))
+
+
+def main(argv):
+    try:
+        opts, args = getopt.getopt(argv, "hn:f:", ["name=", "img_folder="])
+    except getopt.GetoptError:
+        print('usage: artnet_scrapper.py -n <artist-name> -f <image folder>')
+        sys.exit(2)
+    
+    for opt, arg in opts:
+        if opt == '-h':
+            print('usage: artnet_scrapper.py -n <artist-name> -f <image folder>\nExample: artnet_scrapper.py -n gustave-klimt -f img/')
+            sys.exit()
+        
+        elif opt in ('-n', '--name'):
+            artist = arg
+
+        elif opt in ('-f', '--img_folder'):
+            img_folder = arg
+
+    try:
+        print('Searching for {} art pieces on artnet. The images will be stored in {} folder.'.format(artist, img_folder))
+    except:
+        print('usage: artnet_scrapper.py -n <artist-name> -f <image folder>\nExample: artnet_scrapper.py -n gustave-klimt -f img/')
+        sys.exit(2)
+
+    FindStoreImg(artist, img_folder)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
