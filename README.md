@@ -1,5 +1,5 @@
 # Artnet-Scraper
-Python tool to scrap images from artnet website.
+Python script to scrap images from artnet website.
 
 ## Disclaimer
 
@@ -16,6 +16,8 @@ cd Artnet-Scraper
 pip install -r requirements.txt
 
 ### Create output folder and start the scraping
-mkdir img/
-python artnet_sraper -n <artist_name> -f img/
+mkdir <output_folder>
+
+### Indicate the artist name as in the artnet's URL, for instance 'gustav-klimt'
+python artnet_sraper -n <artist_name> -f <output_folder>
 ```
