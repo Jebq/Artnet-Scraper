@@ -7,9 +7,11 @@ from PIL import Image
 import re
 import time
 from datetime import datetime
-import hashlib
 
-def storeImg(url, path):
+def storeImg(url: str, output_path: str):
+    """
+    Opens the image and store in the output folder.
+    """
     req = Request(url, headers={'User-Agent': 'Mozilla/6.0'})
     err_cnt = 0
     while(err_cnt < 20):
@@ -23,15 +25,17 @@ def storeImg(url, path):
     if err_cnt < 20:
         imgName = 'img_'+datetime.now().strftime("%d%m%Y_%H%M%S%f")+'.jpg'
         try:
-            img.save('{}'.format(path+imgName))
+            img.save('{}'.format(output_path+imgName))
         except:
             print('Error while saving {} image.'.format(imgName))
     else:
         print('Couldn\'t retrieve image on {}'.format(url))
 
-def FindStoreImgUrl(img_pages, output):
-
-    for url in img_pages:
+def FindStoreImgUrl(artwork_links: list, output_path: str):
+    """
+    Finds the .jpg url in an artwork page and call the storeImg function.
+    """
+    for url in artwork_links:
         err_cnt = 0
         while err_cnt < 20:
             try:
@@ -49,11 +53,14 @@ def FindStoreImgUrl(img_pages, output):
             baseUrl = '/'.join(imgUrl.split('/')[:6])
             imgUrl = '/'.join(imgUrl.split('/')[6:])
 
-            storeImg(baseUrl + '/' + quote(imgUrl), output)
+            storeImg(baseUrl + '/' + quote(imgUrl), output_path)
         else:
             print('Couldn\'t get image from {}'.format(url))
             
-def FindStoreImg(artist, output):
+def FindStoreImg(artist: str, output_path: str):
+    """
+    Main loop. It scraps an artnet artist's page to find all of his artworks' pages.
+    """
     curr_page = 1
     last_page = False
 
@@ -62,7 +69,7 @@ def FindStoreImg(artist, output):
 
     while (not last_page) & (fail_cnt < 20):
         url = 'https://www.artnet.fr/artistes/'+artist+'/'+str(curr_page)
-        images_link = []
+        artwork_links_arr = []
 
         # Access the url
         try:
@@ -77,16 +84,19 @@ def FindStoreImg(artist, output):
             soup = BeautifulSoup(result.content, 'html.parser')
 
             previous_link = ''
-            # Loop over the links that match an art piece page
-            for link in soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}.+[a-zA-Z0-9-]+/.+[a-z]+.+[0-9]+".format(artist.split('-')[0]))}):
+            # Loop over the links that match an artwork page
+            artwork_links = soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}.+[a-zA-Z0-9-]+/.+[a-z]+.+[0-9]+".format(artist.split('-')[0]))})
+            for link in artwork_links:
                 link = link.get('href')
                 # Links appear twice in the source ode
                 if link != previous_link:
-                    images_link.append('https://www.artnet.fr'+link)
+                    artwork_links_arr.append('https://www.artnet.fr'+link)
                     previous_link = link
             
-            cnt+=len(images_link)
-            FindStoreImgUrl(images_link, output)
+            cnt+=len(artwork_links_arr)
+
+            
+            FindStoreImgUrl(artwork_links_arr, output_path)
 
             print('{} images scrapped so far...'.format(cnt), end = '\r')
 
@@ -95,17 +105,16 @@ def FindStoreImg(artist, output):
             next_link = curr_page
             while int(next_link) <= curr_page:
                 try:
-                    next_link = soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}/[0-9]+$".format(artist))})[index].get('href')
+                    next_page_links = soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}/[0-9]+$".format(artist))})
+                    next_link = next_page_links[index].get('href')
                     next_link = next_link.split('/')[-1]
                     index+=1
-                # If no more next page
                 except:
                     last_page = True
                     next_link = curr_page+1
 
             curr_page = int(next_link)
 
-    # If the site is down
     if fail_cnt >= 20:
         print('Error while accessing the web page. Stopped at {}th iteration.'.format(curr_page))
     
