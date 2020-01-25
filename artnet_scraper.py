@@ -68,7 +68,7 @@ def FindStoreImg(artist: str, output_path: str):
     cnt = 0
 
     while (not last_page) & (fail_cnt < 20):
-        url = 'https://www.artnet.fr/artistes/'+artist+'/'+str(curr_page)
+        url = 'https://www.artnet.com/artistes/'+artist+'/'+str(curr_page)
         artwork_links_arr = []
 
         # Access the url
@@ -85,12 +85,14 @@ def FindStoreImg(artist: str, output_path: str):
 
             previous_link = ''
             # Loop over the links that match an artwork page
-            artwork_links = soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}.+[a-zA-Z0-9-]+/.+[a-z]+.+[0-9]+".format(artist.split('-')[0]))})
+            artwork_links = soup.find("div", {"class": "row results artworks"}).findAll('a', attrs={'class':'details-link'})
+            #soup.findAll('a',  attrs={'href': re.compile("^/artistes/{}.+[a-zA-Z0-9-]+/.+[a-z]+.+[0-9]+".format(artist.split('-')[0]))})
             for link in artwork_links:
                 link = link.get('href')
+                print(link)
                 # Links appear twice in the source ode
                 if link != previous_link:
-                    artwork_links_arr.append('https://www.artnet.fr'+link)
+                    artwork_links_arr.append('https://www.artnet.com'+link)
                     previous_link = link
             
             cnt+=len(artwork_links_arr)
