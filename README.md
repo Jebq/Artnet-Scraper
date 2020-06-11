@@ -19,5 +19,5 @@ pip install -r requirements.txt
 mkdir <output_folder>
 
 ### Indicate the artist name as in the artnet's URL, for instance 'gustav-klimt'
-python artnet_sraper -n <artist_name> -f <output_folder>
+python artnet_scraper -n <artist_name> -f <output_folder>
 ```
